@@ -39,9 +39,39 @@
   let hasCheckedWallet = false;
   let isConnecting = false;
   let quizPassed = false;
+  let proof: string | null = null;
+  let isSigning = false;
+  let signError = '';
 
   function loadQuizState() {
     quizPassed = localStorage.getItem('quizPassed') === '1';
+    proof = localStorage.getItem('proof');
+  }
+
+  async function signProof() {
+    signError = '';
+    isSigning = true;
+    try {
+      const provider = getBrowserEthereumProvider();
+      if (!provider || !address) throw new Error('Гаманець не підключено.');
+
+      const nonce = crypto.randomUUID();
+      const message = `Я пройшов Web3 quiz.\nАдреса: ${address}\nNonce: ${nonce}`;
+
+      const signature = await provider.request({
+        method: 'personal_sign',
+        params: [message, address]
+      });
+
+      if (typeof signature !== 'string') throw new Error('Підпис не отримано.');
+
+      proof = signature;
+      localStorage.setItem('proof', signature);
+    } catch (error) {
+      signError = error instanceof Error ? error.message.split('\n')[0] : 'Не вдалося підписати.';
+    } finally {
+      isSigning = false;
+    }
   }
 
   $: shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
@@ -235,15 +265,21 @@
         <p class="panel--action__hint">Відповідай на питання, щоб отримати badge.</p>
         <Quiz onComplete={() => { quizPassed = true; localStorage.setItem('quizPassed', '1'); }} />
         <button type="button" class="button-secondary" onclick={disconnectWallet}>Disconnect wallet</button>
-      {:else if isConnected && quizPassed}
-        <h2>Wallet state</h2>
-        <p>{walletSummary}</p>
-        <dl class="wallet-details" aria-label="Wallet details">
-          <div><dt>Status</dt><dd>{walletStatus}</dd></div>
-          <div><dt>Account</dt><dd>{shortAddress || 'Not connected'}</dd></div>
-          <div><dt>Network</dt><dd>{chainName ? `${chainName} (${chainId})` : 'Unknown'}</dd></div>
-          <div><dt>Connector</dt><dd>{connectorName || 'Injected wallet'}</dd></div>
-        </dl>
+      {:else if isConnected && quizPassed && !proof}
+        <h2>Підписати proof</h2>
+        <p class="panel--action__hint">Підпиши повідомлення гаманцем, щоб довести що це ти пройшов quiz.</p>
+        {#if signError}
+          <p class="wallet-error" role="alert">{signError}</p>
+        {/if}
+        <button type="button" onclick={signProof} disabled={isSigning}>
+          {isSigning ? 'Очікуй підтвердження...' : 'Підписати proof →'}
+        </button>
+        <button type="button" class="button-secondary" onclick={disconnectWallet}>Disconnect wallet</button>
+      {:else if isConnected && quizPassed && proof}
+        <h2>Proof підписано ✓</h2>
+        <p class="panel--action__hint">Підпис отримано. Тепер можна мінтити badge.</p>
+        <div class="proof-preview">{proof.slice(0, 20)}...{proof.slice(-10)}</div>
+        <button type="button" disabled>Замінтити badge (незабаром)</button>
         <button type="button" class="button-secondary" onclick={disconnectWallet}>Disconnect wallet</button>
       {:else}
         <h2>Wallet state</h2>
