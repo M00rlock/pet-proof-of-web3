@@ -1,0 +1,19 @@
+node_modules/
+.DS_Store
+
+# Build output
+dist/
+build/
+.svelte-kit/
+
+# Solidity tooling
+artifacts/
+cache/
+coverage/
+typechain-types/
+
+# Local env
+.env
+.env.*
+!.env.example
+

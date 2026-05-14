@@ -1,0 +1,25 @@
+{
+  "name": "pet-proof-of-web3",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @proof-of-web3/web",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "check": "npm run check --workspaces --if-present",
+    "web:dev": "npm run dev --workspace @proof-of-web3/web",
+    "web:build": "npm run build --workspace @proof-of-web3/web",
+    "contracts:compile": "npm run compile --workspace @proof-of-web3/contracts",
+    "contracts:test": "npm run test --workspace @proof-of-web3/contracts",
+    "contracts:node": "npm run node --workspace @proof-of-web3/contracts",
+    "contracts:deploy:local": "npm run deploy:local --workspace @proof-of-web3/contracts"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+
