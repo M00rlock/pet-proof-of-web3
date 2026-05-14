@@ -42,10 +42,52 @@
   let proof: string | null = null;
   let isSigning = false;
   let signError = '';
+  let isMinting = false;
+  let mintError = '';
+  let tokenId: number | null = null;
+  let hasBadge = false;
 
   function loadQuizState() {
     quizPassed = localStorage.getItem('quizPassed') === '1';
     proof = localStorage.getItem('proof');
+    const saved = localStorage.getItem('tokenId');
+    if (saved) { tokenId = Number(saved); hasBadge = true; }
+  }
+
+  async function checkBadge(addr: string) {
+    const provider = getBrowserEthereumProvider();
+    if (!provider) return;
+    const result = await provider.request({
+      method: 'eth_call',
+      params: [{
+        to: deployment.address,
+        data: '0x5e50864f000000000000000000000000' + addr.slice(2).toLowerCase()
+      }, 'latest']
+    });
+    hasBadge = result !== '0x' + '0'.repeat(64);
+  }
+
+  async function mintBadge() {
+    mintError = '';
+    isMinting = true;
+    try {
+      const res = await fetch('/api/mint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ learner: address })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Не вдалося замінтити badge.');
+
+      hasBadge = true;
+      tokenId = data.tokenId;
+      localStorage.setItem('tokenId', String(tokenId));
+    } catch (error) {
+      mintError = error instanceof Error ? error.message.split('\n')[0] : 'Не вдалося замінтити badge.';
+    } finally {
+      isMinting = false;
+    }
   }
 
   async function signProof() {
@@ -173,6 +215,7 @@
         }
 
         await syncDirectProviderState(accounts, browserProvider);
+        void checkBadge(accounts[0] as string);
         console.info('[ProofOfWeb3] Wallet connected:', {
           address,
           chainId,
@@ -276,10 +319,26 @@
         </button>
         <button type="button" class="button-secondary" onclick={disconnectWallet}>Disconnect wallet</button>
       {:else if isConnected && quizPassed && proof}
-        <h2>Proof підписано ✓</h2>
-        <p class="panel--action__hint">Підпис отримано. Тепер можна мінтити badge.</p>
-        <div class="proof-preview">{proof.slice(0, 20)}...{proof.slice(-10)}</div>
-        <button type="button" disabled>Замінтити badge (незабаром)</button>
+        {#if hasBadge}
+          <h2>Badge замінтовано ✓</h2>
+          <p class="panel--action__hint">Твій soulbound badge on-chain. Він непередаваний.</p>
+          <div class="badge-minted">
+            <span>🏅</span>
+            <strong>Proof of Web3</strong>
+            <small>{shortAddress}</small>
+          </div>
+        {:else}
+          <h2>Proof підписано ✓</h2>
+          <p class="panel--action__hint">Підпис отримано. Тепер можна мінтити badge.
+          </p>
+          <div class="proof-preview">{proof.slice(0, 20)}...{proof.slice(-10)}</div>
+          {#if mintError}
+            <p class="wallet-error" role="alert">{mintError}</p>
+          {/if}
+          <button type="button" onclick={mintBadge} disabled={isMinting}>
+            {isMinting ? 'Очікуй підтвердження...' : 'Замінтити badge →'}
+          </button>
+        {/if}
         <button type="button" class="button-secondary" onclick={disconnectWallet}>Disconnect wallet</button>
       {:else}
         <h2>Wallet state</h2>
