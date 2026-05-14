@@ -12,6 +12,7 @@
   import { http } from 'viem';
   import { sepolia } from 'viem/chains';
   import { onMount } from 'svelte';
+  import Quiz from '$lib/Quiz.svelte';
 
   const badgeSteps = [
     'Підключити wallet',
@@ -37,6 +38,11 @@
   let hasInjectedWallet = false;
   let hasCheckedWallet = false;
   let isConnecting = false;
+  let quizPassed = false;
+
+  function loadQuizState() {
+    quizPassed = localStorage.getItem('quizPassed') === '1';
+  }
 
   $: shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
   $: isConnected = walletStatus === 'connected' && Boolean(address);
@@ -174,6 +180,7 @@
   }
 
   onMount(() => {
+    loadQuizState();
     const unwatch = watchAccount(walletConfig, {
       onChange: syncWalletState
     });
@@ -223,45 +230,34 @@
     </div>
 
     <div class="panel panel--action">
-      <h2>Wallet state</h2>
-      <p>{walletSummary}</p>
-
-      <dl class="wallet-details" aria-label="Wallet details">
-        <div>
-          <dt>Status</dt>
-          <dd>{walletStatus}</dd>
-        </div>
-
-        <div>
-          <dt>Account</dt>
-          <dd>{shortAddress || 'Not connected'}</dd>
-        </div>
-
-        <div>
-          <dt>Network</dt>
-          <dd>{chainName ? `${chainName} (${chainId})` : 'Unknown'}</dd>
-        </div>
-
-        <div>
-          <dt>Connector</dt>
-          <dd>{connectorName || 'Injected wallet'}</dd>
-        </div>
-      </dl>
-
-      {#if connectError}
-        <p class="wallet-error" role="alert">{connectError}</p>
-      {/if}
-
-      {#if isConnected}
-        <button type="button" class="button-secondary" onclick={disconnectWallet}>
-          Disconnect wallet
-        </button>
+      {#if isConnected && !quizPassed}
+        <h2>Web3 Quiz</h2>
+        <p class="panel--action__hint">Відповідай на питання, щоб отримати badge.</p>
+        <Quiz onComplete={() => { quizPassed = true; localStorage.setItem('quizPassed', '1'); }} />
+        <button type="button" class="button-secondary" onclick={disconnectWallet}>Disconnect wallet</button>
+      {:else if isConnected && quizPassed}
+        <h2>Wallet state</h2>
+        <p>{walletSummary}</p>
+        <dl class="wallet-details" aria-label="Wallet details">
+          <div><dt>Status</dt><dd>{walletStatus}</dd></div>
+          <div><dt>Account</dt><dd>{shortAddress || 'Not connected'}</dd></div>
+          <div><dt>Network</dt><dd>{chainName ? `${chainName} (${chainId})` : 'Unknown'}</dd></div>
+          <div><dt>Connector</dt><dd>{connectorName || 'Injected wallet'}</dd></div>
+        </dl>
+        <button type="button" class="button-secondary" onclick={disconnectWallet}>Disconnect wallet</button>
       {:else}
-        <button
-          type="button"
-          onclick={connectWallet}
-          disabled={isConnecting}
-        >
+        <h2>Wallet state</h2>
+        <p>{walletSummary}</p>
+        <dl class="wallet-details" aria-label="Wallet details">
+          <div><dt>Status</dt><dd>{walletStatus}</dd></div>
+          <div><dt>Account</dt><dd>{shortAddress || 'Not connected'}</dd></div>
+          <div><dt>Network</dt><dd>{chainName ? `${chainName} (${chainId})` : 'Unknown'}</dd></div>
+          <div><dt>Connector</dt><dd>{connectorName || 'Injected wallet'}</dd></div>
+        </dl>
+        {#if connectError}
+          <p class="wallet-error" role="alert">{connectError}</p>
+        {/if}
+        <button type="button" onclick={connectWallet} disabled={isConnecting}>
           {connectButtonLabel}
         </button>
       {/if}
