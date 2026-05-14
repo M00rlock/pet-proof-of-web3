@@ -15,10 +15,10 @@
   import Quiz from '$lib/Quiz.svelte';
 
   const badgeSteps = [
-    'Підключити wallet',
-    'Пройти Web3 quiz',
-    'Підписати proof',
-    'Замінтити soulbound badge'
+    { label: 'Підключити wallet', desc: 'Підключи MetaMask або інший browser wallet' },
+    { label: 'Пройти Web3 quiz', desc: 'Відповідай на 5 питань про основи Web3' },
+    { label: 'Підписати proof', desc: 'Підпиши повідомлення — без транзакції і gas' },
+    { label: 'Отримати badge', desc: 'Замінти непередаваний on-chain сертифікат' }
   ];
 
   const walletConfig = createConfig({
@@ -54,13 +54,15 @@
     if (saved) { tokenId = Number(saved); hasBadge = true; }
   }
 
+  const CONTRACT_ADDRESS = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
+
   async function checkBadge(addr: string) {
     const provider = getBrowserEthereumProvider();
     if (!provider) return;
     const result = await provider.request({
       method: 'eth_call',
       params: [{
-        to: deployment.address,
+        to: CONTRACT_ADDRESS,
         data: '0x5e50864f000000000000000000000000' + addr.slice(2).toLowerCase()
       }, 'latest']
     });
@@ -118,11 +120,7 @@
 
   $: shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
   $: isConnected = walletStatus === 'connected' && Boolean(address);
-  $: walletSummary = isConnected
-    ? 'Wallet підключено. Тепер можна додавати перевірку badge і mint action.'
-    : hasCheckedWallet && !hasInjectedWallet
-      ? 'У цьому браузері немає injected wallet, тому connect prompt не може відкритися.'
-    : 'Підключи browser wallet, щоб продовжити локальний Web3 flow.';
+  $: currentStep = !isConnected ? 0 : !quizPassed ? 1 : !proof ? 2 : !hasBadge ? 3 : 4;
   $: connectButtonLabel = isConnecting
     ? 'Connecting...'
     : hasCheckedWallet && !hasInjectedWallet
@@ -278,10 +276,10 @@
   <section class="hero" aria-labelledby="page-title">
     <div class="hero__copy">
       <p class="eyebrow">Proof of Learning Badge</p>
-      <h1 id="page-title">Навчальний Web3 badge, який не продається.</h1>
+      <h1 id="page-title">Докажи, що знаєш Web3.</h1>
       <p class="lead">
-        Перший прототип навчить нас wallet connect, підписам, Solidity mint-flow і
-        непередаваним on-chain credentials.
+        Пройди quiz, підпиши proof гаманцем і отримай непередаваний on-chain badge.
+        Це твій верифікований сертифікат у блокчейні.
       </p>
     </div>
 
@@ -294,10 +292,13 @@
 
   <section class="workspace" aria-label="Поточний flow">
     <div class="panel">
-      <h2>V1 flow</h2>
+      <h2>Як це працює</h2>
       <ol class="steps">
-        {#each badgeSteps as step}
-          <li>{step}</li>
+        {#each badgeSteps as step, i}
+          <li class="step" class:step--active={i === currentStep} class:step--done={i < currentStep || hasBadge}>
+            <span class="step__label">{step.label}</span>
+            <span class="step__desc">{step.desc}</span>
+          </li>
         {/each}
       </ol>
     </div>
@@ -320,17 +321,18 @@
         <button type="button" class="button-secondary" onclick={disconnectWallet}>Disconnect wallet</button>
       {:else if isConnected && quizPassed && proof}
         {#if hasBadge}
-          <h2>Badge замінтовано ✓</h2>
-          <p class="panel--action__hint">Твій soulbound badge on-chain. Він непередаваний.</p>
+          <h2>Badge отримано ✓</h2>
+          <p class="panel--action__hint">Твій soulbound badge живе в блокчейні. Його не можна передати, продати або підробити.</p>
           <div class="badge-minted">
             <span>🏅</span>
             <strong>Proof of Web3</strong>
-            <small>{shortAddress}</small>
+            <small>Web3 Foundations</small>
+            <code>{shortAddress}</code>
           </div>
+          <button type="button" class="button-secondary" onclick={disconnectWallet}>Disconnect wallet</button>
         {:else}
           <h2>Proof підписано ✓</h2>
-          <p class="panel--action__hint">Підпис отримано. Тепер можна мінтити badge.
-          </p>
+          <p class="panel--action__hint">Підпис отримано. Тепер можна мінтити badge.</p>
           <div class="proof-preview">{proof.slice(0, 20)}...{proof.slice(-10)}</div>
           {#if mintError}
             <p class="wallet-error" role="alert">{mintError}</p>
@@ -338,17 +340,11 @@
           <button type="button" onclick={mintBadge} disabled={isMinting}>
             {isMinting ? 'Очікуй підтвердження...' : 'Замінтити badge →'}
           </button>
+          <button type="button" class="button-secondary" onclick={disconnectWallet}>Disconnect wallet</button>
         {/if}
-        <button type="button" class="button-secondary" onclick={disconnectWallet}>Disconnect wallet</button>
       {:else}
-        <h2>Wallet state</h2>
-        <p>{walletSummary}</p>
-        <dl class="wallet-details" aria-label="Wallet details">
-          <div><dt>Status</dt><dd>{walletStatus}</dd></div>
-          <div><dt>Account</dt><dd>{shortAddress || 'Not connected'}</dd></div>
-          <div><dt>Network</dt><dd>{chainName ? `${chainName} (${chainId})` : 'Unknown'}</dd></div>
-          <div><dt>Connector</dt><dd>{connectorName || 'Injected wallet'}</dd></div>
-        </dl>
+        <h2>Підключи гаманець</h2>
+        <p class="panel--action__hint">Підключи browser wallet, щоб розпочати.</p>
         {#if connectError}
           <p class="wallet-error" role="alert">{connectError}</p>
         {/if}
